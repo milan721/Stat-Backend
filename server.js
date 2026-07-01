@@ -8,12 +8,14 @@ require("dotenv").config();
 
 const app = express();
 
-// In production the frontend is on Vercel — allow its origin via env var
+// In production the frontend is on Vercel — allow its origin via env var.
+// Origin headers never have a trailing slash, so strip one if FRONTEND_URL has it
+// (a common copy-paste mistake) or CORS silently rejects every request.
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:4173",
-  process.env.FRONTEND_URL,        // e.g. https://your-app.vercel.app
+  process.env.FRONTEND_URL?.replace(/\/$/, ""),   // e.g. https://your-app.vercel.app
 ].filter(Boolean)
 
 app.use(cors({ origin: allowedOrigins }));
@@ -26,6 +28,12 @@ if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
   credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
 } else {
   const keyPath = path.join(__dirname, "service-account.json");
+  if (!fs.existsSync(keyPath)) {
+    throw new Error(
+      "No Google credentials found. Set GOOGLE_SERVICE_ACCOUNT_JSON in production, " +
+      "or place service-account.json in the Backend folder for local dev."
+    );
+  }
   credentials = JSON.parse(fs.readFileSync(keyPath, "utf8"));
 }
 if (credentials.private_key) {
